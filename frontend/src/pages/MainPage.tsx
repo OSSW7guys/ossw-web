@@ -50,22 +50,47 @@ const MainPage = () => {
     };
 
     const handlePayCheck = async () => {
-        if (previewFiles.length === 0) return;
+        if (previewFiles.length === 0) {
+            alert('영수증 이미지를 첨부해주세요.');
+            return;
+        }
+        if (participants.length === 0) {
+             alert('참여자를 추가해주세요.');
+             return;
+        }
         setUploading(true);
         try {
             const formData = new FormData();
             previewFiles.forEach(file => formData.append('image', file));
 
+            // 이미지 업로드 POST 요청
             await axiosInstance.post('api/receipt/upload/', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
             });
 
+            // 참여자 명단 개별 POST 요청
+            // 참여자 명단 배열을 순회하며 각 이름에 대해 개별 POST 요청 전송
+            for (const participantName of participants) {
+                // 각 참여자 이름을 JSON 객체 형태로 감싸서 전송
+                const participantBody = {
+                     name: participantName
+                };
+
+                // '/api/participant/' 엔드포인트로 JSON 형태의 본문 전송
+                await axiosInstance.post('api/participant/', participantBody, {
+                     headers: {
+                         'Content-Type': 'application/json',
+                     }
+                });
+              }
+
             // 업로드 성공 시 페이지 이동
-            navigate('/check');
-        } catch (error) {
-            alert('이미지 업로드에 실패했습니다.');
+             navigate('/check');
+        } catch (error: any) { // 에러 타입 명시
+            console.error('업로드 및 참여자 명단 전송 실패:', error);
+            alert('업로드 및 참여자 명단 전송에 실패했습니다.\n' + (error.response?.data?.detail || error.message)); // 상세 에러 메시지 포함
         } finally {
             setUploading(false);
         }
@@ -172,11 +197,18 @@ const MainPage = () => {
             {/* 하단 PayCheck 버튼 */}
             <div className="flex flex-col items-center mt-24 mb-24 w-full">
                 <button
-                    className="w-[310px] h-[72px] rounded-[16px] bg-[#0083FF] flex items-center justify-center transition-colors duration-200 text-white font-bold text-[36px] font-['Inter'] hover:bg-[#0069CD] cursor-pointer"
+                    className={`
+                        w-[310px] h-[72px] rounded-[16px] flex items-center justify-center
+                        transition-colors duration-200 text-white font-bold text-[36px] font-['Inter']
+                        ${uploading || previewFiles.length === 0 || participants.length === 0
+                          ? 'bg-[#A1A1A1] cursor-not-allowed' // 비활성화 상태일 때 적용될 클래스
+                          : 'bg-[#0083FF] hover:bg-[#0069CD] cursor-pointer' // 활성화 상태일 때 적용될 클래스
+                        }
+                    `}
                     onClick={handlePayCheck}
-                    disabled={uploading || previewFiles.length === 0}
+                    disabled={uploading || previewFiles.length === 0 || participants.length === 0}
                 >
-                    {uploading ? '업로드 중...' : 'PayCheck'}
+                PayCheck
                 </button>
             </div>
         </div>
