@@ -4,7 +4,7 @@ import LandingPage from './pages/LandingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import MainPage from './pages/MainPage';
 import CheckPage from './pages/CheckPage';
-import Layout from './layouts/layout';
+import Layout from './layouts/Layout';
 
 const router = createBrowserRouter([
     {

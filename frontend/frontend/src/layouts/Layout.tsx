@@ -34,7 +34,7 @@ const Layout = ({ children }: LayoutProps) => {
       <main className="flex-1 flex flex-col">{children}</main>
       {/* 푸터 */}
       <footer className="w-full h-16 text-[#525761] flex items-center justify-center">
-        <span className="text-sm font-bold text-[18px] font-['Inter'] mx-auto">ChillGuys!</span>
+        <span className="text-sm font-bold text-[18px] font-['Inter'] mx-auto cursor-default">ChillGuys!</span>
       </footer>
     </div>
   );
