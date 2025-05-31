@@ -1,5 +1,5 @@
 const CheckPage = () => {
-    return <div></div>
+    return <div>Hello World!</div>
 };
 
 export default CheckPage;
