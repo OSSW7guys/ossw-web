@@ -23,10 +23,10 @@ const Layout = ({ children }: LayoutProps) => {
 
         <div className="ml-auto flex gap-4 absolute right-8 top-5">
           <button onClick={() => navigate(-1)} aria-label="뒤로">
-            <img src="/navigate_left.svg" alt="뒤로" className="w-10 h-10" />
+            <img src="/navigate_left.svg" alt="뒤로" className="w-10 h-10 cursor-pointer" />
           </button>
           <button onClick={() => navigate(1)} aria-label="앞으로">
-            <img src="/navigate_right.svg" alt="앞으로" className="w-10 h-10" />
+            <img src="/navigate_right.svg" alt="앞으로" className="w-10 h-10 cursor-pointer" />
           </button>
         </div>
       </nav>
