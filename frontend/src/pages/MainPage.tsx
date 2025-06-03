@@ -160,13 +160,14 @@ const MainPage = () => {
                     {participants.map(name => (
                         <div
                             key={name}
-                            className="w-[100px] h-[33px] rounded-[15px] flex items-center px-3 mr-2 mb-2 bg-[#389EFF]/30 border-2 border-[#389EFF]"
+                            className="h-[33px] rounded-[15px] flex items-center px-3 mr-2 mb-2 bg-[#389EFF]/30 border-2 border-[#389EFF]"
                         >
                             <span className="text-[18px] font-medium font-['Inter'] truncate text-[#0069CD]">{name}</span>
                             <button
                                 className="ml-2 text-lg font-bold focus:outline-none flex items-center justify-center h-full text-[#0069CD] cursor-pointer"
                                 onClick={() => handleRemove(name)}
                                 aria-label="참여자 삭제"
+                                type="button"
                             >
                                 ×
                             </button>
