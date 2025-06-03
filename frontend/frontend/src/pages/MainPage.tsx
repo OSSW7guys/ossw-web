@@ -167,7 +167,6 @@ const MainPage = () => {
                                 className="ml-2 text-lg font-bold focus:outline-none flex items-center justify-center h-full text-[#0069CD] cursor-pointer"
                                 onClick={() => handleRemove(name)}
                                 aria-label="참여자 삭제"
-                                type="button"
                             >
                                 ×
                             </button>
