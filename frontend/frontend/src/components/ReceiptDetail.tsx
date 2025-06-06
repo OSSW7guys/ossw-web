@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Receipt } from '../types/receipt'; // types/receipt 파일 경로 확인 필요
 
 interface ReceiptDetailProps {
     receiptData: Receipt[]; // 영수증 품목 데이터 배열
     allowedParticipants: string[]; // 추가: 허용된 참여자 명단
+    settleType: 'even' | 'item'; // 추가: 정산 방식
 }
 
-const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants }) => {
+const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants, settleType }) => {
     // 영수증 데이터가 없거나 비어있으면 처리
     if (!receiptData || receiptData.length === 0) {
         return <div>영수증 내역이 없습니다.</div>;
@@ -17,8 +18,17 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
 
     // 각 품목별 참여자를 관리하기 위한 상태 (품목 index -> 참여자 이름 배열)
     const [itemParticipants, setItemParticipants] = useState<string[][]>(
-        receiptData.map(() => [])
+        receiptData.map(() => settleType === 'even' ? allowedParticipants : [])
     );
+
+    // settleType 또는 allowedParticipants가 변경될 때 itemParticipants 상태를 업데이트
+    useEffect(() => {
+        if (settleType === 'even') {
+            setItemParticipants(receiptData.map(() => allowedParticipants));
+        } else {
+            setItemParticipants(receiptData.map(() => []));
+        }
+    }, [settleType, allowedParticipants, receiptData]); // 의존성 배열에 settleType, allowedParticipants, receiptData 추가
 
     // 각 품목별 오류 메시지를 관리하기 위한 상태 (품목 index -> 오류 메시지 문자열)
     const [itemErrors, setItemErrors] = useState<string[]>(
@@ -109,7 +119,7 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
                                 <td className="px-2 py-3">{item.item_name}</td>
                                 <td className="px-2 py-3">{item.quantity}</td>
                                 <td className="px-2 py-3">{item.total_amount}</td>
-                                <td className="px-2 py-3 relative"> {/* 상대 위치 설정 */}
+                                <td className="px-2 py-3 relative">
                                     {/* 오류 메시지 표시 */}
                                     {itemErrors[index] && (
                                         <p className="text-red-500 text-sm absolute bottom-13 left-0 w-full text-left px-3">{itemErrors[index]}</p>
