@@ -3,9 +3,10 @@ import type { Receipt } from '../types/receipt'; // types/receipt 파일 경로 
 
 interface ReceiptDetailProps {
     receiptData: Receipt[]; // 영수증 품목 데이터 배열
+    allowedParticipants: string[]; // 추가: 허용된 참여자 명단
 }
 
-const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData }) => {
+const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants }) => {
     // 영수증 데이터가 없거나 비어있으면 처리
     if (!receiptData || receiptData.length === 0) {
         return <div>영수증 내역이 없습니다.</div>;
@@ -15,20 +16,52 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData }) => {
     const storeName = receiptData[0].store_name;
 
     // 각 품목별 참여자를 관리하기 위한 상태 (품목 index -> 참여자 이름 배열)
-    // 초기 상태는 각 품목에 대해 빈 참여자 배열로 설정
     const [itemParticipants, setItemParticipants] = useState<string[][]>(
         receiptData.map(() => [])
     );
 
+    // 각 품목별 오류 메시지를 관리하기 위한 상태 (품목 index -> 오류 메시지 문자열)
+    const [itemErrors, setItemErrors] = useState<string[]>(
+        receiptData.map(() => '')
+    );
+
     // 특정 품목에 참여자 태그 추가 핸들러
     const handleAddParticipant = (itemIndex: number, participantName: string) => {
-        if (participantName.trim() === '') return;
+        const trimmedName = participantName.trim();
+
+        // 입력이 비어있으면 오류 메시지 제거 후 종료
+        if (trimmedName === '') {
+            setItemErrors(prevErrors => {
+                const newErrors = [...prevErrors];
+                newErrors[itemIndex] = '';
+                return newErrors;
+            });
+            return;
+        }
+
+        // 허용된 참여자 명단에 있는지 확인
+        if (!allowedParticipants.includes(trimmedName)) {
+            // 명단에 없으면 오류 메시지 설정
+            setItemErrors(prevErrors => {
+                const newErrors = [...prevErrors];
+                newErrors[itemIndex] = '리스트에 있는 이름이 아닙니다';
+                return newErrors;
+            });
+            return; // 참여자 추가 방지
+        }
+
+        // 명단에 있으면 오류 메시지 제거 및 참여자 추가
+        setItemErrors(prevErrors => {
+            const newErrors = [...prevErrors];
+            newErrors[itemIndex] = ''; // 성공 시 오류 메시지 초기화
+            return newErrors;
+        });
 
         setItemParticipants(prevParticipants => {
             const newParticipants = [...prevParticipants];
             // 해당 품목의 참여자 목록에 추가 (중복 방지)
-            if (!newParticipants[itemIndex].includes(participantName.trim())) {
-                 newParticipants[itemIndex] = [...newParticipants[itemIndex], participantName.trim()];
+            if (!newParticipants[itemIndex].includes(trimmedName)) {
+                 newParticipants[itemIndex] = [...newParticipants[itemIndex], trimmedName];
             }
             return newParticipants;
         });
@@ -45,6 +78,14 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData }) => {
          });
     };
 
+    // 입력 필드 내용 변경 시 해당 품목의 오류 메시지 제거
+    const handleInputChange = (itemIndex: number) => {
+        setItemErrors(prevErrors => {
+            const newErrors = [...prevErrors];
+            newErrors[itemIndex] = '';
+            return newErrors;
+        });
+    };
 
     return (
         <div className="receipt-detail-container w-full cursor-default"> {/* 전체 컨테이너 너비 꽉 채우기 */}
@@ -69,6 +110,10 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData }) => {
                                 <td className="px-2 py-3">{item.quantity}</td>
                                 <td className="px-2 py-3">{item.total_amount}</td>
                                 <td className="px-2 py-3 relative"> {/* 상대 위치 설정 */}
+                                    {/* 오류 메시지 표시 */}
+                                    {itemErrors[index] && (
+                                        <p className="text-red-500 text-sm absolute bottom-13 left-0 w-full text-left px-3">{itemErrors[index]}</p>
+                                    )}
                                     <input
                                         type="text"
                                         placeholder="참여자 추가"
@@ -77,9 +122,11 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData }) => {
                                             if (e.key === 'Enter') {
                                                 const inputElement = e.target as HTMLInputElement;
                                                 handleAddParticipant(index, inputElement.value);
+                                                // 참여자 추가 후 입력 필드 초기화
                                                 inputElement.value = '';
                                             }
                                         }}
+                                        onChange={() => handleInputChange(index)} // 입력 변경 시 오류 메시지 제거
                                     />
                                 </td>
                             </tr>
