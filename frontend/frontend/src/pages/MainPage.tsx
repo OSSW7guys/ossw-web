@@ -79,7 +79,7 @@ const MainPage = () => {
                 };
 
                 // '/api/participant/' 엔드포인트로 JSON 형태의 본문 전송
-                await axiosInstance.post('api/participant/', participantBody, {
+                await axiosInstance.post('api/participant/join/', participantBody, {
                      headers: {
                          'Content-Type': 'application/json',
                      }
