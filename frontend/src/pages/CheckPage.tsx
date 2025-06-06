@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ReceiptDetail from '../components/ReceiptDetail';
 import { axiosInstance } from '../apis/axios';
 import type { Receipt } from '../types/receipt';
+import { useLocation } from 'react-router-dom';
 
 const CheckPage = () => {
     const [rawReceiptItems, setRawReceiptItems] = useState<Receipt[]>([]);
@@ -13,6 +14,8 @@ const CheckPage = () => {
     const [allowedParticipants, setAllowedParticipants] = useState<string[]>([]);
 
     const navigate = useNavigate();
+    const location = useLocation();
+    const { settleType } = location.state as { settleType: 'even' | 'item' } || { settleType: 'even' }; // state에서 settleType 가져오기 (기본값 'even')
 
     useEffect(() => {
         const fetchReceipts = async () => {
@@ -95,7 +98,7 @@ const CheckPage = () => {
                     
                     <div className="w-full flex flex-col gap-12 m-8">
                     {groupedReceipts.map((receiptItems, index) => (
-                        <ReceiptDetail key={index} receiptData={receiptItems} allowedParticipants={allowedParticipants}/>
+                        <ReceiptDetail key={index} receiptData={receiptItems} allowedParticipants={allowedParticipants} settleType={settleType}/>
                     ))}
                     </div>
 
