@@ -7,9 +7,10 @@ interface ReceiptDetailProps {
     settleType: 'even' | 'item'; // 추가: 정산 방식
     receiptId: number; // 추가: 현재 영수증의 ID
     onItemParticipantsChange: (receiptId: number, itemIndex: number, updatedParticipants: string[]) => void; // 추가: 품목별 참여자 변경 시 호출될 콜백
+    initialItemAssignments: Array<{ item_name: string; participants: string[] }>; // 추가: 초기 품목별 참여자 할당
 }
 
-const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants, settleType, receiptId, onItemParticipantsChange }) => {
+const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants, settleType, receiptId, onItemParticipantsChange, initialItemAssignments }) => {
     // 영수증 데이터가 없거나 비어있으면 처리
     if (!receiptData || receiptData.length === 0) {
         return <div>영수증 내역이 없습니다.</div>;
@@ -20,7 +21,15 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
 
     // 각 품목별 참여자를 관리하기 위한 상태 (품목 index -> 참여자 이름 배열)
     const [itemParticipants, setItemParticipants] = useState<string[][]>(
-        receiptData.map(() => settleType === 'even' ? allowedParticipants : [])
+        receiptData.map((item) => {
+            if (settleType === 'even') {
+                return allowedParticipants;
+            } else {
+                // initialItemAssignments에서 해당 품목의 참여자 정보를 찾아 초기값으로 설정
+                const assignment = initialItemAssignments.find(a => a.item_name === item.item_name);
+                return assignment ? assignment.participants : [];
+            }
+        })
     );
 
     // settleType 또는 allowedParticipants가 변경될 때 itemParticipants 상태를 업데이트
@@ -28,9 +37,13 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
         if (settleType === 'even') {
             setItemParticipants(receiptData.map(() => allowedParticipants));
         } else {
-            setItemParticipants(receiptData.map(() => []));
+            // settleType이 'item'으로 변경될 때 초기 할당 데이터를 기반으로 다시 설정
+            setItemParticipants(receiptData.map((item) => {
+                const assignment = initialItemAssignments.find(a => a.item_name === item.item_name);
+                return assignment ? assignment.participants : [];
+            }));
         }
-    }, [settleType, allowedParticipants, receiptData]); // 의존성 배열에 settleType, allowedParticipants, receiptData 추가
+    }, [settleType, allowedParticipants, receiptData, initialItemAssignments]); // 의존성 배열에 initialItemAssignments 추가
 
     // 각 품목별 오류 메시지를 관리하기 위한 상태 (품목 index -> 오류 메시지 문자열)
     const [itemErrors, setItemErrors] = useState<string[]>(
