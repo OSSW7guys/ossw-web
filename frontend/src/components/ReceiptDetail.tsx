@@ -5,9 +5,11 @@ interface ReceiptDetailProps {
     receiptData: Receipt[]; // 영수증 품목 데이터 배열
     allowedParticipants: string[]; // 추가: 허용된 참여자 명단
     settleType: 'even' | 'item'; // 추가: 정산 방식
+    receiptId: number; // 추가: 현재 영수증의 ID
+    onItemParticipantsChange: (receiptId: number, itemIndex: number, updatedParticipants: string[]) => void; // 추가: 품목별 참여자 변경 시 호출될 콜백
 }
 
-const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants, settleType }) => {
+const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParticipants, settleType, receiptId, onItemParticipantsChange }) => {
     // 영수증 데이터가 없거나 비어있으면 처리
     if (!receiptData || receiptData.length === 0) {
         return <div>영수증 내역이 없습니다.</div>;
@@ -73,6 +75,10 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
             if (!newParticipants[itemIndex].includes(trimmedName)) {
                  newParticipants[itemIndex] = [...newParticipants[itemIndex], trimmedName];
             }
+            // 항목별 정산일 경우 변경사항을 부모 컴포넌트에 알림
+            if (settleType === 'item') {
+                onItemParticipantsChange(receiptId, itemIndex, newParticipants[itemIndex]);
+            }
             return newParticipants;
         });
     };
@@ -84,6 +90,10 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
              newParticipants[itemIndex] = newParticipants[itemIndex].filter(
                  participant => participant !== participantToRemove
              );
+             // 항목별 정산일 경우 변경사항을 부모 컴포넌트에 알림
+             if (settleType === 'item') {
+                onItemParticipantsChange(receiptId, itemIndex, newParticipants[itemIndex]);
+            }
              return newParticipants;
          });
     };
@@ -104,12 +114,14 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
 
             {/* 영수증 품목 테이블 */}
             <table className="receipt-items-table w-full border-collapse"> {/* 테이블 너비 꽉 채우기, 테두리 병합 */}
-                <thead className="text-left"> {/* 헤더 텍스트 좌측 정렬 */}
+                <thead className="text-left">
                     <tr className="text-[24px] font-bold font-['Inter'] text-[#525761]">
-                        <th className="w-2/5 px-2 pb-2">품목</th> {/* 품목 열 너비 설정 */}
-                        <th className="w-1/5 px-2 pb-2">수량</th> {/* 수량 열 너비 설정 */}
-                        <th className="w-1/5 px-2 pb-2">금액</th> {/* 금액 열 너비 설정 */}
-                        <th className="w-1/5 px-2 pb-2 text-center">참여자</th>
+                        <th className="w-2/5 px-2 pb-2">품목</th>
+                        <th className="w-1/5 px-2 pb-2">수량</th>
+                        <th className="w-1/5 px-2 pb-2">금액</th>
+                        {settleType !== 'even' && (
+                            <th className="w-1/5 px-2 pb-2 text-center">참여자</th>
+                        )}
                     </tr>
                 </thead>
                 <tbody>
@@ -119,28 +131,30 @@ const ReceiptDetail: React.FC<ReceiptDetailProps> = ({ receiptData, allowedParti
                                 <td className="px-2 py-3">{item.item_name}</td>
                                 <td className="px-2 py-3">{item.quantity}</td>
                                 <td className="px-2 py-3">{item.total_amount}</td>
-                                <td className="px-2 py-3 relative">
-                                    {/* 오류 메시지 표시 */}
-                                    {itemErrors[index] && (
-                                        <p className="text-red-500 text-sm absolute bottom-13 left-0 w-full text-left px-3">{itemErrors[index]}</p>
-                                    )}
-                                    <input
-                                        type="text"
-                                        placeholder="참여자 추가"
-                                        className="w-[200px] h-[40px] rounded-[12px] text-[16px] font-medium outline-none bg-[#F5F5F5] px-3"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const inputElement = e.target as HTMLInputElement;
-                                                handleAddParticipant(index, inputElement.value);
-                                                // 참여자 추가 후 입력 필드 초기화
-                                                inputElement.value = '';
-                                            }
-                                        }}
-                                        onChange={() => handleInputChange(index)} // 입력 변경 시 오류 메시지 제거
-                                    />
-                                </td>
+                                {settleType !== 'even' && (
+                                    <td className="px-2 py-3 relative">
+                                        {/* 오류 메시지 표시 */}
+                                        {itemErrors[index] && (
+                                            <p className="text-red-500 text-sm absolute bottom-13 left-0 w-full text-left px-3">{itemErrors[index]}</p>
+                                        )}
+                                        <input
+                                            type="text"
+                                            placeholder="참여자 추가"
+                                            className="w-[200px] h-[40px] rounded-[12px] text-[16px] font-medium outline-none bg-[#F5F5F5] px-3"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const inputElement = e.target as HTMLInputElement;
+                                                    handleAddParticipant(index, inputElement.value);
+                                                    // 참여자 추가 후 입력 필드 초기화
+                                                    inputElement.value = '';
+                                                }
+                                            }}
+                                            onChange={() => handleInputChange(index)} // 입력 변경 시 오류 메시지 제거
+                                        />
+                                    </td>
+                                )}
                             </tr>
-                            {itemParticipants[index].length > 0 && (
+                            {settleType !== 'even' && itemParticipants[index].length > 0 && (
                                 <tr key={`tags-${index}`}>
                                     <td colSpan={4} className="px-2 pt-2 pb-4">
                                         <div className="flex flex-wrap gap-2 justify-end">
