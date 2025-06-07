@@ -4,6 +4,7 @@ import ReceiptDetail from '../components/ReceiptDetail';
 import { axiosInstance } from '../apis/axios';
 import type { Receipt } from '../types/receipt';
 import { useLocation } from 'react-router-dom';
+import KakaoShareBtn from '../components/KakaoShareBtn';
 
 const CheckPage = () => {
     const [rawReceiptItems, setRawReceiptItems] = useState<Receipt[]>([]);
@@ -116,9 +117,12 @@ const CheckPage = () => {
                         엑셀로 내보내기
                         </button>
 
-                        <button className="w-[190px] h-[57px] bg-[#0083FF] hover:bg-[#0069CD] duration-200 rounded-[18px] cursor-pointer">
-                        공유하기
-                        </button>    
+                        <KakaoShareBtn
+                          title="공유 내용을 확인하세요"
+                          description="정산 세부 내역을 확인하려면 클릭하세요."
+                          imageUrl=""
+                          linkUrl="http://localhost:5173/"
+                        />   
                     </div>
                     
                     <button
