@@ -63,7 +63,7 @@ export default function KakaoShareBtn({
 
   return (
     <button
-      className="px-4 py-2 bg-yellow-400 text-black rounded-lg hover:bg-yellow-500 transition"
+      className="w-[190px] h-[57px] bg-[#0083FF] hover:bg-[#0069CD] duration-200 rounded-[18px] cursor-pointer"
       onClick={shareToKakao}
     >
       공유하기
