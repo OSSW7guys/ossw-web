@@ -1,7 +1,46 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { axiosInstance } from '../apis/axios';
+import axios from 'axios';
 
 const LandingPage = () => {
     const navigate = useNavigate();
+
+    useEffect(() => {
+        // 백엔드 데이터 초기화 API 호출
+        const clearBackendData = async () => {
+            try {
+                const response = await axiosInstance.post('api/receipt/clear_all_data/', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (response.status === 200) {
+                    const data = response.data;
+                    console.log('백엔드 데이터 초기화 성공:', data.message);
+                } else {
+                    const errorData = response.data;
+                    console.error('백엔드 데이터 초기화 실패:', errorData.error || '알 수 없는 오류');
+                }
+            } catch (error) {
+                if (axios.isAxiosError(error)) {
+                    if (error.response) {
+                        console.error('백엔드 데이터 초기화 실패 (응답 오류):', error.response.data);
+                    } else if (error.request) {
+                        console.error('백엔드 데이터 초기화 실패 (요청 오류): 응답 없음');
+                    } else {
+                        console.error('API 호출 중 오류 발생:', error.message);
+                    }
+                } else if (error instanceof Error) {
+                    console.error('API 호출 중 일반 오류 발생:', error.message);
+                } else {
+                    console.error('API 호출 중 알 수 없는 오류 발생');
+                }
+            }
+        };
+        clearBackendData();
+    }, []); // 빈 의존성 배열은 컴포넌트 마운트 시 한 번만 실행되도록 함
 
     const handleStartClick = () => {
         navigate('/main'); // MainPage 경로로 이동
