@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ReceiptDetail from '../components/ReceiptDetail';
 import { axiosInstance } from '../apis/axios';
 import type { Receipt } from '../types/receipt';
-import { useLocation } from 'react-router-dom';
-import KakaoShareBtn from '../components/KakaoShareBtn';
-import React from 'react';
+
+declare global {
+    interface Window {
+        Kakao: any;
+    }
+}
 
 const CheckPage = () => {
     const [rawReceiptItems, setRawReceiptItems] = useState<Receipt[]>([]);
@@ -18,9 +21,59 @@ const CheckPage = () => {
     // 항목별 정산을 위한 참여자 할당 데이터 (receiptId -> [{item_name, participants}, ...])
     const [receiptItemAssignments, setReceiptItemAssignments] = useState<Map<number, Array<{ item_name: string; participants: string[] }>>>(new Map());
 
+    const [showAccountPopup, setShowAccountPopup] = useState(false);
+    const [tempAccountHolder, setTempAccountHolder] = useState('');
+    const [tempAccountNumber, setTempAccountNumber] = useState('');
+    const [accountInfo, setAccountInfo] = useState({ holder: '', number: '' });
+    const [kakaoReady, setKakaoReady] = useState(false);
+    const [popupPosition, setPopupPosition] = useState<{ top: number; left: number } | null>(null);
+
+    const kakaoShareButtonRef = useRef<HTMLButtonElement>(null);
+
     const navigate = useNavigate();
     const location = useLocation();
     const { settleType } = location.state as { settleType: 'even' | 'item' } || { settleType: 'even' }; // state에서 settleType 가져오기 (기본값 'even')
+
+    useEffect(() => {
+        const scriptId = 'kakao-sdk';
+        if (!window.Kakao || !window.Kakao.isInitialized()) {
+            const script = document.createElement('script');
+            script.id = scriptId;
+            script.src = 'https://developers.kakao.com/sdk/js/kakao.js';
+            script.onload = () => {
+                if (window.Kakao) {
+                    window.Kakao.init('c4913a27ee144670505405de9ee16631'); // 카카오 JavaScript 키
+                    setKakaoReady(true);
+                    console.log('Kakao SDK initialized (CheckPage):', window.Kakao.isInitialized());
+                }
+            };
+            document.head.appendChild(script);
+        } else {
+            setKakaoReady(true);
+        }
+    }, []);
+
+    // New useEffect to update popup position on scroll/resize
+    useEffect(() => {
+        const updatePopupPosition = () => {
+            if (showAccountPopup && kakaoShareButtonRef.current) {
+                const rect = kakaoShareButtonRef.current.getBoundingClientRect();
+                setPopupPosition({
+                    top: rect.top - 20, // 버튼 위로 여백을 20px 줌 (뷰포트 기준)
+                    left: rect.left + rect.width / 2,
+                });
+            }
+        };
+
+        window.addEventListener('scroll', updatePopupPosition);
+        window.addEventListener('resize', updatePopupPosition);
+
+        // Clean up event listeners
+        return () => {
+            window.removeEventListener('scroll', updatePopupPosition);
+            window.removeEventListener('resize', updatePopupPosition);
+        };
+    }, [showAccountPopup]); // Only re-run if popup visibility changes
 
     // 영수증 및 참여자 데이터 초기 로딩
     useEffect(() => {
@@ -153,6 +206,74 @@ const CheckPage = () => {
         return Array.from(receiptsMap.values());
     };
 
+    const generateShareMessage = useCallback(() => {
+        const accountInfoText = accountInfo.holder && accountInfo.number
+            ? `💰${accountInfo.number} ${accountInfo.holder}`
+            : '';
+
+        return `📢 PayCheck❗정산이 요청됐어요 📢\n${accountInfoText}`;
+    }, [accountInfo]);
+
+    const shareToKakao = useCallback(() => {
+        if (!kakaoReady) {
+            console.warn('Kakao SDK가 아직 준비되지 않았습니다.');
+            return;
+        }
+
+        const title = generateShareMessage();
+        const description = settlementResult && Object.keys(settlementResult).length > 0
+            ? `정산 세부 내역을 확인하려면 클릭하세요.\n${Object.entries(settlementResult).map(([name, amount]) => `✅${name} ${amount}원`).join('\n')}`
+            : '정산 세부 내역을 확인하려면 클릭하세요.';
+        const imageUrl = ""; // TODO: 실제 배포 시에는 유효한 이미지 URL로 변경해야 합니다.
+        const linkUrl = "http://localhost:5173/check"; // TODO: 실제 배포 시에는 서비스의 실제 도메인 URL로 변경해야 합니다.
+
+        window.Kakao.Link.sendDefault({
+            objectType: 'feed',
+            content: {
+                title,
+                description,
+                imageUrl,
+                link: {
+                    mobileWebUrl: linkUrl,
+                    webUrl: linkUrl,
+                },
+            },
+            buttons: [
+                {
+                    title: '웹으로 보기',
+                    link: {
+                        mobileWebUrl: linkUrl,
+                        webUrl: linkUrl,
+                    },
+                },
+            ],
+        });
+    }, [kakaoReady, generateShareMessage]);
+
+    const handleShareClick = () => {
+        if (kakaoShareButtonRef.current) {
+            const rect = kakaoShareButtonRef.current.getBoundingClientRect();
+            // 팝업이 버튼 위에 뜨도록 top 위치 조정 (뷰포트 기준)
+            setPopupPosition({
+                top: rect.top - 20, // 버튼 위로 여백을 20px 줌
+                left: rect.left + rect.width / 2,
+            });
+        }
+        setShowAccountPopup(true);
+    };
+
+    const handleConfirmAccount = () => {
+        setAccountInfo({ holder: tempAccountHolder, number: tempAccountNumber });
+        setShowAccountPopup(false);
+        shareToKakao();
+    };
+
+    const handleCancelAccount = () => {
+        setShowAccountPopup(false);
+        setTempAccountHolder('');
+        setTempAccountNumber('');
+    };
+
     if (loading) {
         return <div>로딩 중...</div>;
     }
@@ -179,12 +300,12 @@ const CheckPage = () => {
                     {groupedReceipts.map((receiptItems, index) => (
                         <ReceiptDetail
                             key={index}
-                            receiptId={receiptItems[0].receipt} // receiptId prop 추가
+                            receiptId={receiptItems[0].receipt}
                             receiptData={receiptItems}
                             allowedParticipants={allowedParticipants}
                             settleType={settleType}
-                            onItemParticipantsChange={handleItemParticipantsUpdate} // 콜백 prop 추가
-                            initialItemAssignments={receiptItemAssignments.get(receiptItems[0].receipt) || []} // 추가: 초기 품목별 참여자 할당
+                            onItemParticipantsChange={handleItemParticipantsUpdate}
+                            initialItemAssignments={receiptItemAssignments.get(receiptItems[0].receipt) || []}
                         />
                     ))}
                     </div>
@@ -194,14 +315,13 @@ const CheckPage = () => {
 
                 <section className="w-full flex flex-col items-center mb-8">
                     <h2 className="text-[40px] font-bold font-['Inter'] text-[#525761] cursor-default">정산 결과</h2>
-                    {/* 정산 결과 표시 */}
                     {settlementResult && Object.keys(settlementResult).length > 0 ? (
                         <div className="mt-8 flex flex-col items-center">
                             <div className="grid grid-cols-2 gap-x-20 gap-y-6">
                                 {Object.entries(settlementResult).map(([name, amount]) => (
                                     <React.Fragment key={name}>
                                         <div className="flex justify-start">
-                                            <span className="flex items-center bg-[#389EFF]/30 text-[#0069CD] text-[16px] font-['Inter'] font-medium px-4 rounded-full border border-[#389EFF]">
+                                            <span className="flex items-center bg-[#389EFF]/30 text-[#0069CD] text-[16px] font-['Inter'] font-medium px-4 py-0.5 leading-tight rounded-full border border-[#389EFF]">
                                                 {name}
                                             </span>
                                         </div>
@@ -225,12 +345,13 @@ const CheckPage = () => {
                         엑셀로 내보내기
                         </button>
 
-                        <KakaoShareBtn
-                          title="공유 내용을 확인하세요"
-                          description="정산 세부 내역을 확인하려면 클릭하세요."
-                          imageUrl=""
-                          linkUrl="http://localhost:5173/"
-                        />   
+                        <button
+                            ref={kakaoShareButtonRef}
+                            className="w-[190px] h-[57px] bg-[#0083FF] hover:bg-[#0069CD] duration-200 rounded-[18px] cursor-pointer"
+                            onClick={handleShareClick}
+                        >
+                            공유하기
+                        </button>
                     </div>
                     
                     <button
@@ -241,6 +362,55 @@ const CheckPage = () => {
                     </button>
                 </section>
             </div>
+
+            {showAccountPopup && popupPosition && (
+                <div
+                    className="fixed bg-white p-6 rounded-lg shadow-lg w-56 z-50"
+                    style={{
+                        top: popupPosition.top,
+                        left: popupPosition.left,
+                        transform: 'translate(-50%, -97%)' // 팝업의 중앙이 버튼의 중앙에 오도록, 그리고 위로 이동
+                    }}
+                >
+                    <h3 className="text-lg font-bold font-['Inter'] text-[#525761] mb-4">계좌 정보 입력</h3>
+                    <div className="mb-4">
+                        <label htmlFor="accountHolder" className="block text-base font-bold font-['Inter'] text-[#525761] mb-2">예금주명</label>
+                        <input
+                            type="text"
+                            id="accountHolder"
+                            className="w-full h-[40px] rounded-[12px] bg-[#F5F5F5] px-4 text-base font-['Inter'] outline-none"
+                            value={tempAccountHolder}
+                            onChange={(e) => setTempAccountHolder(e.target.value)}
+                            placeholder="예)홍길동"
+                        />
+                    </div>
+                    <div className="mb-6">
+                        <label htmlFor="accountNumber" className="block text-base font-bold font-['Inter'] text-[#525761] mb-2">계좌번호</label>
+                        <input
+                            type="text"
+                            id="accountNumber"
+                            className="w-full h-[40px] rounded-[12px] bg-[#F5F5F5] px-4 text-base font-['Inter'] outline-none"
+                            value={tempAccountNumber}
+                            onChange={(e) => setTempAccountNumber(e.target.value)}
+                            placeholder="예)3333123456789"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-4">
+                        <button
+                            className="w-[80px] h-[40px] rounded-[12px] duration-200 bg-[#389EFF] hover:bg-[#0069CD] cursor-pointer text-white text-base font-bold font-['Inter']"
+                            onClick={handleConfirmAccount}
+                        >
+                            확인
+                        </button>
+                        <button
+                            className="w-[80px] h-[40px] rounded-[12px] duration-200 bg-[#A1A1A1] hover:bg-[#7A7A7A] cursor-pointer text-white text-base font-bold font-['Inter']"
+                            onClick={handleCancelAccount}
+                        >
+                            취소
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
