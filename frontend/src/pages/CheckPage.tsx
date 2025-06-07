@@ -5,6 +5,7 @@ import { axiosInstance } from '../apis/axios';
 import type { Receipt } from '../types/receipt';
 import { useLocation } from 'react-router-dom';
 import KakaoShareBtn from '../components/KakaoShareBtn';
+import React from 'react';
 
 const CheckPage = () => {
     const [rawReceiptItems, setRawReceiptItems] = useState<Receipt[]>([]);
@@ -183,6 +184,7 @@ const CheckPage = () => {
                             allowedParticipants={allowedParticipants}
                             settleType={settleType}
                             onItemParticipantsChange={handleItemParticipantsUpdate} // 콜백 prop 추가
+                            initialItemAssignments={receiptItemAssignments.get(receiptItems[0].receipt) || []} // 추가: 초기 품목별 참여자 할당
                         />
                     ))}
                     </div>
@@ -194,13 +196,26 @@ const CheckPage = () => {
                     <h2 className="text-[40px] font-bold font-['Inter'] text-[#525761] cursor-default">정산 결과</h2>
                     {/* 정산 결과 표시 */}
                     {settlementResult && Object.keys(settlementResult).length > 0 ? (
-                        <div className="mt-4 text-[24px] font-['Inter'] text-[#525761] flex flex-col items-center">
-                            {Object.entries(settlementResult).map(([name, amount]) => (
-                                <p key={name}>{name}: {amount}원</p>
-                            ))}
+                        <div className="mt-8 flex flex-col items-center">
+                            <div className="grid grid-cols-2 gap-x-20 gap-y-6">
+                                {Object.entries(settlementResult).map(([name, amount]) => (
+                                    <React.Fragment key={name}>
+                                        <div className="flex justify-start">
+                                            <span className="flex items-center bg-[#389EFF]/30 text-[#0069CD] text-[16px] font-['Inter'] font-medium px-4 rounded-full border border-[#389EFF]">
+                                                {name}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <span className="text-[28px] font-bold font-['Inter'] text-[#0083FF]">
+                                                {amount}원
+                                            </span>
+                                        </div>
+                                    </React.Fragment>
+                                ))}
+                            </div>
                         </div>
                     ) : (
-                        settleType === 'item' && <p className="mt-4 text-[20px] font-['Inter'] text-[#868686]">정산할 품목을 지정해주세요.</p>
+                        settleType === 'item' && <p className="mt-4 text-[20px] font-['Inter'] text-[#868686]">정산할 참여자를 지정해주세요.</p>
                     )}
                 </section>
                 
