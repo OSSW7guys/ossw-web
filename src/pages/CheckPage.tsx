@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ReceiptDetail from '../components/ReceiptDetail';
 import { axiosInstance } from '../apis/axios';
 import type { Receipt } from '../types/receipt';
+import { useLocation } from 'react-router-dom';
 
 const CheckPage = () => {
     const [rawReceiptItems, setRawReceiptItems] = useState<Receipt[]>([]);
@@ -10,8 +11,11 @@ const CheckPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [totalAmount, setTotalAmount] = useState<number>(0);
+    const [allowedParticipants, setAllowedParticipants] = useState<string[]>([]);
 
     const navigate = useNavigate();
+    const location = useLocation();
+    const { settleType } = location.state as { settleType: 'even' | 'item' } || { settleType: 'even' }; // state에서 settleType 가져오기 (기본값 'even')
 
     useEffect(() => {
         const fetchReceipts = async () => {
@@ -28,6 +32,23 @@ const CheckPage = () => {
 
                 const calculatedTotal = items.reduce((sum, item) => sum + item.total_amount, 0);
                 setTotalAmount(calculatedTotal);
+                
+                const fetchParticipants = async () => {
+                    try {
+                        const participantResponse = await axiosInstance.get<{ success: boolean; message: string; data: { id: number; name: string }[] }>('api/participant/members/');
+                        console.log('GET 요청 응답 데이터:', participantResponse.data);
+                        if (participantResponse.data && Array.isArray(participantResponse.data.data)) {
+                            setAllowedParticipants(participantResponse.data.data.map(member => member.name));
+                        } else {
+                            console.error('참여자 명단 데이터 형식이 예상과 다릅니다.', participantResponse.data);
+                            setAllowedParticipants([]);
+                        }
+                    } catch (participantError: any) {
+                        console.error('GET 요청 실패:', participantError);
+                    }
+                };
+
+                fetchParticipants();
 
             } catch (err: any) {
                 console.error('영수증 데이터 불러오기 실패:', err);
@@ -77,7 +98,7 @@ const CheckPage = () => {
                     
                     <div className="w-full flex flex-col gap-12 m-8">
                     {groupedReceipts.map((receiptItems, index) => (
-                        <ReceiptDetail key={index} receiptData={receiptItems} />
+                        <ReceiptDetail key={index} receiptData={receiptItems} allowedParticipants={allowedParticipants} settleType={settleType}/>
                     ))}
                     </div>
 

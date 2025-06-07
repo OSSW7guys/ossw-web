@@ -79,7 +79,7 @@ const MainPage = () => {
                 };
 
                 // '/api/participant/' 엔드포인트로 JSON 형태의 본문 전송
-                await axiosInstance.post('api/participant/', participantBody, {
+                await axiosInstance.post('api/participant/join/', participantBody, {
                      headers: {
                          'Content-Type': 'application/json',
                      }
@@ -87,7 +87,7 @@ const MainPage = () => {
               }
 
             // 업로드 성공 시 페이지 이동
-             navigate('/check');
+             navigate('/check', { state: { settleType } });
         } catch (error: any) { // 에러 타입 명시
             console.error('업로드 및 참여자 명단 전송 실패:', error);
             alert('업로드 및 참여자 명단 전송에 실패했습니다.\n' + (error.response?.data?.detail || error.message)); // 상세 에러 메시지 포함
