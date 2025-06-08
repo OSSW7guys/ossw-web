@@ -18,6 +18,7 @@ const CheckPage = () => {
     const [totalAmount, setTotalAmount] = useState<number>(0);
     const [allowedParticipants, setAllowedParticipants] = useState<string[]>([]);
     const [settlementResult, setSettlementResult] = useState<{[key: string]: number} | null>(null);
+    const [settlementId, setSettlementId] = useState<number | null>(null);
     // 항목별 정산을 위한 참여자 할당 데이터 (receiptId -> [{item_name, participants}, ...])
     const [receiptItemAssignments, setReceiptItemAssignments] = useState<Map<number, Array<{ item_name: string; participants: string[] }>>>(new Map());
 
@@ -155,13 +156,16 @@ const CheckPage = () => {
                     const uniqueReceiptIds = Array.from(new Set(rawReceiptItems.map(item => item.receipt)));
                     const receiptsForEqualMethod = uniqueReceiptIds.map(id => ({ receipt_id: id }));
 
-                    const settlementResponse = await axiosInstance.post<{ success: boolean; message: string; result: { [key: string]: number } }>('/api/settlement/calculate/', {
+                    const settlementResponse = await axiosInstance.post<{ success: boolean; message: string; result: { [key: string]: number }; settlement_id?: number }>('/api/settlement/calculate/', {
                         method: "equal",
                         receipts: receiptsForEqualMethod,
                         participants: allowedParticipants,
                     });
+                    console.log('Equal method settlement response:', settlementResponse.data);
                     if (settlementResponse.data.success) {
                         setSettlementResult(settlementResponse.data.result);
+                        setSettlementId(settlementResponse.data.settlement_id ?? null);
+                        console.log('Settlement ID after set for equal method:', settlementResponse.data.settlement_id ?? null);
                     } else {
                         console.error('정산 계산 실패 (1/N):', settlementResponse.data.message);
                     }
@@ -173,12 +177,15 @@ const CheckPage = () => {
                     }));
 
                     if (receiptsForItemsMethod.length > 0) { // 할당된 품목이 있을 때만 API 호출
-                        const settlementResponse = await axiosInstance.post<{ success: boolean; message: string; result: { [key: string]: number } }>('/api/settlement/calculate/', {
+                        const settlementResponse = await axiosInstance.post<{ success: boolean; message: string; result: { [key: string]: number }; settlement_id?: number }>('/api/settlement/calculate/', {
                             method: "item",
                             receipts: receiptsForItemsMethod,
                         });
+                        console.log('Item method settlement response:', settlementResponse.data);
                         if (settlementResponse.data.success) {
                             setSettlementResult(settlementResponse.data.result);
+                            setSettlementId(settlementResponse.data.settlement_id ?? null);
+                            console.log('Settlement ID after set for item method:', settlementResponse.data.settlement_id ?? null);
                         } else {
                             console.error('정산 계산 실패 (항목별):', settlementResponse.data.message);
                         }
@@ -224,8 +231,8 @@ const CheckPage = () => {
         const description = settlementResult && Object.keys(settlementResult).length > 0
             ? `정산 세부 내역을 확인하려면 클릭하세요.\n${Object.entries(settlementResult).map(([name, amount]) => `✅${name} ${amount}원`).join('\n')}`
             : '정산 세부 내역을 확인하려면 클릭하세요.';
-        const imageUrl = ""; // TODO: 실제 배포 시에는 유효한 이미지 URL로 변경해야 합니다.
-        const linkUrl = "http://localhost:5173/check"; // TODO: 실제 배포 시에는 서비스의 실제 도메인 URL로 변경해야 합니다.
+        const imageUrl = "https://ibb.co/nqqVqBqp";
+        const linkUrl = "http://localhost:5173/check";
 
         window.Kakao.Link.sendDefault({
             objectType: 'feed',
@@ -272,6 +279,19 @@ const CheckPage = () => {
         setShowAccountPopup(false);
         setTempAccountHolder('');
         setTempAccountNumber('');
+    };
+
+    const handleExportExcel = () => {
+        console.log('Attempting to export excel. Current settlementId:', settlementId); // 디버깅 로그 추가
+        if (settlementId) {
+            // 백엔드 API 엔드포인트에 맞게 URL 생성
+            const excelExportUrl = `http://localhost:8000/api/settlement/export_excel/${settlementId}/`;
+            // 새 탭에서 URL을 열어 파일 다운로드 유도
+            window.open(excelExportUrl, '_blank');
+        } else {
+            console.warn('정산 ID가 없어 엑셀을 내보낼 수 없습니다.');
+            alert('정산이 먼저 완료되어야 엑셀을 내보낼 수 있습니다.');
+        }
     };
 
     if (loading) {
@@ -341,8 +361,11 @@ const CheckPage = () => {
                 
                 <section className="w-full flex flex-col items-center font-bold font-['Inter'] text-white">
                     <div className="flex flex-row gap-15 text-[24px] mb-8">
-                        <button className="w-[190px] h-[57px] bg-[#51BE5A] hover:bg-[#46AF4F] duration-200 rounded-[18px] cursor-pointer">
-                        엑셀로 내보내기
+                        <button
+                            className="w-[190px] h-[57px] bg-[#51BE5A] hover:bg-[#46AF4F] duration-200 rounded-[18px] cursor-pointer"
+                            onClick={handleExportExcel}
+                        >
+                            엑셀로 내보내기
                         </button>
 
                         <button
