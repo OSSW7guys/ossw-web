@@ -1,14 +1,8 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ReceiptDetail from '../components/ReceiptDetail';
 import { axiosInstance } from '../apis/axios';
 import type { Receipt } from '../types/receipt';
-
-declare global {
-    interface Window {
-        Kakao: any;
-    }
-}
 
 const CheckPage = () => {
     const [rawReceiptItems, setRawReceiptItems] = useState<Receipt[]>([]);
@@ -26,7 +20,6 @@ const CheckPage = () => {
     const [tempAccountHolder, setTempAccountHolder] = useState('');
     const [tempAccountNumber, setTempAccountNumber] = useState('');
     const [accountInfo, setAccountInfo] = useState({ holder: '', number: '' });
-    const [kakaoReady, setKakaoReady] = useState(false);
     const [popupPosition, setPopupPosition] = useState<{ top: number; left: number } | null>(null);
 
     const kakaoShareButtonRef = useRef<HTMLButtonElement>(null);
@@ -36,23 +29,12 @@ const CheckPage = () => {
     const { settleType } = location.state as { settleType: 'even' | 'item' } || { settleType: 'even' }; // state에서 settleType 가져오기 (기본값 'even')
 
     useEffect(() => {
-        const scriptId = 'kakao-sdk';
-        if (!window.Kakao || !window.Kakao.isInitialized()) {
-            const script = document.createElement('script');
-            script.id = scriptId;
-            script.src = 'https://developers.kakao.com/sdk/js/kakao.js';
-            script.onload = () => {
-                if (window.Kakao) {
-                    window.Kakao.init('c4913a27ee144670505405de9ee16631'); // 카카오 JavaScript 키
-                    setKakaoReady(true);
-                    console.log('Kakao SDK initialized (CheckPage):', window.Kakao.isInitialized());
-                }
-            };
-            document.head.appendChild(script);
-        } else {
-            setKakaoReady(true);
+        const JAVASCRIPT_KET = import.meta.env.VITE_APP_JAVASCRIPT_KEY;
+        if (window.Kakao && !window.Kakao.isInitialized()) {
+          window.Kakao.init(JAVASCRIPT_KET);
+          window.Kakao.isInitialized();
         }
-    }, []);
+      }, []);
 
     // New useEffect to update popup position on scroll/resize
     useEffect(() => {
@@ -213,51 +195,26 @@ const CheckPage = () => {
         return Array.from(receiptsMap.values());
     };
 
-    const generateShareMessage = useCallback(() => {
-        const accountInfoText = accountInfo.holder && accountInfo.number
-            ? `💰${accountInfo.number} ${accountInfo.holder}`
-            : '';
-
-        return `📢 PayCheck❗정산이 요청됐어요 📢\n${accountInfoText}`;
-    }, [accountInfo]);
-
-    const shareToKakao = useCallback(() => {
-        if (!kakaoReady) {
+    const shareToKakao = () => {
+        if (!window.Kakao || !window.Kakao.isInitialized()) {
             console.warn('Kakao SDK가 아직 준비되지 않았습니다.');
             return;
         }
 
-        const title = generateShareMessage();
-        const description = settlementResult && Object.keys(settlementResult).length > 0
-            ? `정산 세부 내역을 확인하려면 클릭하세요.\n${Object.entries(settlementResult).map(([name, amount]) => `✅${name} ${amount}원`).join('\n')}`
-            : '정산 세부 내역을 확인하려면 클릭하세요.';
-        const imageUrl = "https://ibb.co/nqqVqBqp";
-        const linkUrl = "http://localhost:5173/check";
-
-        window.Kakao.Link.sendDefault({
-            objectType: 'feed',
-            content: {
-                title,
-                description,
-                imageUrl,
-                link: {
-                    mobileWebUrl: linkUrl,
-                    webUrl: linkUrl,
-                },
+        window.Kakao.Share.sendCustom({
+            templateId: 121351,
+            templateArgs: {
+                total: totalAmount,
+                accountInfoText: `${accountInfo.number} ${accountInfo.holder}`,
+                description: settlementResult && Object.keys(settlementResult).length > 0
+            ? `${Object.entries(settlementResult).map(([name, amount]) => `✅${name} ${amount}원`).join('\n')}`
+            : '',
             },
-            buttons: [
-                {
-                    title: '웹으로 보기',
-                    link: {
-                        mobileWebUrl: linkUrl,
-                        webUrl: linkUrl,
-                    },
-                },
-            ],
+            installTalk: true,
         });
-    }, [kakaoReady, generateShareMessage]);
-
-    const handleShareClick = () => {
+    };
+    
+    const handleShareKakaoClick = () => {
         if (kakaoShareButtonRef.current) {
             const rect = kakaoShareButtonRef.current.getBoundingClientRect();
             // 팝업이 버튼 위에 뜨도록 top 위치 조정 (뷰포트 기준)
@@ -295,7 +252,28 @@ const CheckPage = () => {
     };
 
     if (loading) {
-        return <div>로딩 중...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center w-full min-h-screen">
+                <style>
+                    {`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    .spinner {
+                        border: 4px solid #f3f3f3; /* Light grey background */
+                        border-top: 4px solid #0083FF; /* Blue spinner */
+                        border-radius: 50%;
+                        width: 50px;
+                        height: 50px;
+                        animation: spin 1s linear infinite;
+                    }
+                    `}
+                </style>
+                <div className="spinner"></div>
+                <p className="mt-4 text-[20px] font-bold font-['Inter'] text-[#525761]">영수증을 분석하고 있습니다. 잠시만 기다려주세요...</p>
+            </div>
+        );
     }
 
     if (error) {
@@ -371,7 +349,7 @@ const CheckPage = () => {
                         <button
                             ref={kakaoShareButtonRef}
                             className="w-[190px] h-[57px] bg-[#0083FF] hover:bg-[#0069CD] duration-200 rounded-[18px] cursor-pointer"
-                            onClick={handleShareClick}
+                            onClick={handleShareKakaoClick}
                         >
                             공유하기
                         </button>
